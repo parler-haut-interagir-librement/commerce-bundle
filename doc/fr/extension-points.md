@@ -132,7 +132,7 @@ liée à la commande, à la ligne et à l'unité qu'on lui donne.
 |---|---|
 | `supports(string $method): bool` | Si la passerelle répond pour ce mode ; une seule devrait le faire |
 | `start(Payment $payment, Order $order): PaymentStart` | Remet le paiement au processeur pour `$payment->amount` ; retourne la référence du processeur et une page ou un secret client |
-| `refund(Payment $payment, Money $amount): void` | Demande un remboursement au processeur ; n'enregistre rien |
+| `refund(Payment $payment, Money $amount, string $idempotencyKey): void` | Demande un remboursement au processeur, en lui remettant la clé comme clé d'idempotence ; n'enregistre rien |
 | `read(string $payload, array $headers): PaymentNotification` | Vérifie la signature du processeur et lit son événement ; lève `InvalidNotification` sinon |
 
 Invariants :
@@ -145,6 +145,11 @@ Invariants :
   pas est lu comme `InvalidNotification`, auquel le *webhook* répond 400, ou n'est tout simplement pas souscrit.
 - **Ne prenez jamais un montant dans la requête** : `start()` facture le montant du paiement, `refund()` le montant
   demandé.
+- **Remettez la clé d'idempotence au processeur** : la même clé accompagne chaque tentative d'un même remboursement,
+  de sorte que le processeur ne le fasse qu'une fois.
+- **Une passerelle qui est son propre processeur** — elle enregistre un remboursement aussitôt, sans notification à
+  attendre — applique le remboursement sous sa clé, comme identifiant de la notification : `Payments::refund()` trouve
+  alors la clé appliquée (`Payment::hasApplied()`) et ne fait rien quand le remboursement est redemandé.
 - Gardez les identifiants de connexion du processeur dans les secrets de l'application, lus par l'adaptateur.
 
 ## `StockCommitments`
