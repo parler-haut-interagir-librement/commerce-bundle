@@ -4,9 +4,35 @@ All notable changes to `phil/commerce-bundle` will be documented in this file.
 
 Updates should follow the [Keep a CHANGELOG](https://keepachangelog.com/) principles.
 
+## 0.4.0-alpha - 2026-11-20
+
+Two refunds granted at once on the same payment can no longer add up to more than it;
+`Refunds::grant()` runs inside a transaction. See [Upgrading from 0.3](doc/refunds.md#upgrading-from-03).
+
+### Added
+
+- `Application\Contract\PaymentLock`, which holds a payment for one refund at a time, and its Doctrine adapter
+  `Infrastructure\Doctrine\DoctrinePaymentLock`, aliased with DoctrineBundle: the payment's row locked with `SELECT …
+  FOR UPDATE` until the transaction ends, on MySQL, MariaDB and PostgreSQL, its version checked against the copy in
+  memory, and its refunds read by a locking read.
+- `Refunds` takes a `PaymentLock` as its last argument.
+- Integration tests on MySQL and PostgreSQL that grant two refunds of one payment from two processes at once.
+
+### Changed
+
+- `Refunds::grant()` takes the payment's lock before it checks the payment's state and counts what is left: with
+  `DoctrinePaymentLock`, it throws a `LogicException` outside a transaction, and Doctrine's `OptimisticLockException`
+  when the payment changed since the entity manager read it.
+
+### Security
+
+- Two refunds granted at the same moment on the same payment each counted what was left before the other was stored,
+  and together could exceed the payment: the second one now waits for the first one's transaction and counts its
+  refund.
+
 ## 0.3.0-alpha - 2026-11-18
 
-The next version is 0.3.0-alpha: the methods and provider references of the payments and the owners of the wish lists
+The methods and provider references of the payments and the owners of the wish lists
 compare byte by byte on MySQL and MariaDB. See [Upgrading from 0.2](doc/payments.md#upgrading-from-02).
 
 ### Added
@@ -29,7 +55,7 @@ compare byte by byte on MySQL and MariaDB. See [Upgrading from 0.2](doc/payments
 
 ## 0.2.0-alpha - 2026-11-17
 
-The next version is 0.2.0-alpha: a refund is refused that was granted before, and `PaymentGateway::refund()` and
+A refund is refused that was granted before, and `PaymentGateway::refund()` and
 `Payments::refund()` take an idempotency key.
 
 ### Added
